@@ -12,6 +12,8 @@ export NETWORK=${NETWORK:-"mainnet"}  # Default to "mainnet" unless otherwise se
 export TOR_PROXY=${TOR_PROXY}  # Optional Tor SOCKS5 proxy (e.g., "127.0.0.1:9050" or "tor:9050")
 export MAINNET_SEEDS=${MAINNET_SEEDS}  # Comma-separated list of mainnet seed hostnames
 export TESTNET_SEEDS=${TESTNET_SEEDS}  # Comma-separated list of testnet seed hostnames
+export MAINNET_ONION_SEEDS=${MAINNET_ONION_SEEDS}  # Comma-separated list of mainnet onion addresses (addr.onion:port)
+export TESTNET_ONION_SEEDS=${TESTNET_ONION_SEEDS}  # Comma-separated list of testnet onion addresses (addr.onion:port)
 
 # Extra arguments for testnet
 extra_args=""
@@ -32,6 +34,16 @@ fi
 # Add testnet seeds if set
 if [[ -n "$TESTNET_SEEDS" ]]; then
   export extra_args="$extra_args -u \"$TESTNET_SEEDS\""
+fi
+
+# Add mainnet onion seeds if set
+if [[ -n "$MAINNET_ONION_SEEDS" ]]; then
+  export extra_args="$extra_args -r \"$MAINNET_ONION_SEEDS\""
+fi
+
+# Add testnet onion seeds if set
+if [[ -n "$TESTNET_ONION_SEEDS" ]]; then
+  export extra_args="$extra_args -y \"$TESTNET_ONION_SEEDS\""
 fi
 
 # If the first argument starts with a hyphen (-), consider it an argument for the dnsseed binary

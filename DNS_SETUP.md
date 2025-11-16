@@ -37,6 +37,31 @@ environment:
   - TESTNET_SEEDS=testseed1.example.com,testseed2.example.com
 ```
 
+### Bootstrapping Onion Nodes
+
+For Tor onion nodes, you can directly specify `.onion` addresses to bootstrap discovery:
+
+**Command-line:**
+```bash
+./dnsseed -h seed.example.com -n ns.example.com \
+  -o 127.0.0.1:9050 \
+  -r abc123def456.onion:8234,xyz789uvw012.onion:8234
+```
+
+**Docker environment variables:**
+```yaml
+environment:
+  - TOR_PROXY=tor:9050
+  - MAINNET_ONION_SEEDS=abc123def456.onion:8234,xyz789uvw012.onion:8234
+  - TESTNET_ONION_SEEDS=test123abc456.onion:18234
+```
+
+The seeder will:
+1. Connect to these onion addresses immediately on startup
+2. Request peer lists, which may include more onion addresses
+3. Continue discovering onion nodes through peer exchange
+4. Serve discovered onion addresses via DNS TXT records
+
 ## How It Works
 
 1. **Bootstrap Phase**: When the seeder starts, it queries the seed domains to find initial peers

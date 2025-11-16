@@ -52,11 +52,15 @@ Command-line usage:
 
    -s <seeds>    Comma-separated list of mainnet seed hostnames
    -u <seeds>    Comma-separated list of testnet seed hostnames
+   -r <onions>   Comma-separated list of mainnet onion addresses (addr.onion:port)
+   -y <onions>   Comma-separated list of testnet onion addresses (addr.onion:port)
 
 Docker environment variables:
 
    - MAINNET_SEEDS: Comma-separated list of mainnet seed hostnames (e.g., "seed1.com,seed2.com")
    - TESTNET_SEEDS: Comma-separated list of testnet seed hostnames
+   - MAINNET_ONION_SEEDS: Comma-separated list of mainnet onion addresses (e.g., "abc.onion:8234")
+   - TESTNET_ONION_SEEDS: Comma-separated list of testnet onion addresses (e.g., "xyz.onion:18234")
 
 The seeder will:
 1. Perform DNS lookups on the seed hostnames every 30 minutes
@@ -92,8 +96,29 @@ The seeder supports crawling and serving Tor onion addresses. To enable this:
 
 TXT records contain onion addresses in the format: onion=<address>:<port>
 
-Note: You can add seed onion addresses manually in main.cpp (ThreadSeeder function)
-to bootstrap the onion node discovery process.
+ONION NODE BOOTSTRAPPING
+------------------------
+
+You can bootstrap onion node discovery in several ways:
+
+1. Via command-line arguments:
+
+   ./dnsseed -h dnsseed.example.com -n vps.example.com \
+     -o 127.0.0.1:9050 \
+     -r abc123...xyz.onion:8234,def456...uvw.onion:8234
+
+2. Via Docker environment variables:
+
+   - MAINNET_ONION_SEEDS=abc123...xyz.onion:8234,def456...uvw.onion:8234
+   - TOR_PROXY=tor:9050
+
+3. Via manual code addition in main.cpp (ThreadSeeder function):
+
+   db.Add(CService("abc123...xyz.onion", 8234), true);
+
+Once the seeder connects to any onion node, it will automatically discover more onion
+peers through the peer exchange protocol. The initial seeds just help bootstrap the
+discovery process.
 
 DOCKER WITH TOR SUPPORT
 ------------------------
@@ -112,6 +137,11 @@ Configuration via environment variables in docker-compose.yml:
    - NETWORK: "mainnet" or "testnet"
    - MAINNET_SEEDS: Comma-separated list of mainnet seed hostnames to bootstrap from
    - TESTNET_SEEDS: Comma-separated list of testnet seed hostnames to bootstrap from
+   - MAINNET_ONION_SEEDS: Comma-separated list of mainnet onion addresses (addr.onion:port)
+   - TESTNET_ONION_SEEDS: Comma-separated list of testnet onion addresses (addr.onion:port)
+
+See docker-compose.yml for a comprehensive example with both mainnet and testnet seeders
+running simultaneously.
 
 Manual Docker setup options:
 

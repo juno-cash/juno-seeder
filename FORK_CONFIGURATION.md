@@ -56,8 +56,11 @@ This seeder has been customized for the Juno network with the following network 
 - `-t <threads>`: Number of crawlers to run in parallel (default 96)
 - `-d <threads>`: Number of DNS server threads (default 4)
 - `-p <port>`: UDP port to listen on (default 53)
+- `-o <ip:port>`: Tor proxy address for crawling onion nodes
 - `-s <seeds>`: Comma-separated list of mainnet seed hostnames to bootstrap from
 - `-u <seeds>`: Comma-separated list of testnet seed hostnames to bootstrap from
+- `-r <onions>`: Comma-separated list of mainnet onion addresses (addr.onion:port)
+- `-y <onions>`: Comma-separated list of testnet onion addresses (addr.onion:port)
 - `--testnet`: Use testnet parameters
 
 ## Network Isolation
@@ -85,6 +88,23 @@ These can be overridden using:
 - Docker: `MAINNET_SEEDS` or `TESTNET_SEEDS` environment variables
 
 The seed domains should point to your DNS seed servers that will provide IP addresses of active nodes on the Juno network.
+
+### Onion Node Seeds
+
+For Tor onion nodes, you can directly specify `.onion` addresses:
+
+**Command-line:**
+```bash
+./dnsseed -h dnsseed.junomoneta.io -n ns.example.com \
+  -o 127.0.0.1:9050 \
+  -r abc123.onion:8234,def456.onion:8234
+```
+
+**Docker environment variables:**
+- `MAINNET_ONION_SEEDS`: Comma-separated mainnet onion addresses with ports
+- `TESTNET_ONION_SEEDS`: Comma-separated testnet onion addresses with ports
+
+These onion seeds are added directly to the database on startup to bootstrap onion node discovery.
 
 ## Testing
 

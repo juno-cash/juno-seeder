@@ -33,9 +33,11 @@ public:
   const char *ipv6_proxy;
   const char *mainnet_seeds;
   const char *testnet_seeds;
+  const char *mainnet_onion_seeds;
+  const char *testnet_onion_seeds;
   std::set<uint64_t> filter_whitelist;
 
-  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL), mainnet_seeds(NULL), testnet_seeds(NULL) {}
+  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL), mainnet_seeds(NULL), testnet_seeds(NULL), mainnet_onion_seeds(NULL), testnet_onion_seeds(NULL) {}
 
   void ParseCommandLine(int argc, char **argv) {
     static const char *help = "Bitcoin-seeder\n"
@@ -55,6 +57,8 @@ public:
                               "-w f1,f2,...    Allow these flag combinations as filters\n"
                               "-s <seeds>      Comma-separated list of mainnet seed hostnames\n"
                               "-u <seeds>      Comma-separated list of testnet seed hostnames\n"
+                              "-r <onions>     Comma-separated list of mainnet onion addresses (addr.onion:port)\n"
+                              "-y <onions>     Comma-separated list of testnet onion addresses (addr.onion:port)\n"
                               "--testnet       Use testnet\n"
                               "--wipeban       Wipe list of banned nodes\n"
                               "--wipeignore    Wipe list of ignored nodes\n"
@@ -77,6 +81,8 @@ public:
         {"filter", required_argument, 0, 'w'},
         {"mainnet-seeds", required_argument, 0, 's'},
         {"testnet-seeds", required_argument, 0, 'u'},
+        {"mainnet-onion-seeds", required_argument, 0, 'r'},
+        {"testnet-onion-seeds", required_argument, 0, 'y'},
         {"testnet", no_argument, &fUseTestNet, 1},
         {"wipeban", no_argument, &fWipeBan, 1},
         {"wipeignore", no_argument, &fWipeBan, 1},
@@ -84,7 +90,7 @@ public:
         {0, 0, 0, 0}
       };
       int option_index = 0;
-      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:s:u:", long_options, &option_index);
+      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:s:u:r:y:", long_options, &option_index);
       if (c == -1) break;
       switch (c) {
         case 'h': {
@@ -168,6 +174,16 @@ public:
 
         case 'u': {
           testnet_seeds = optarg;
+          break;
+        }
+
+        case 'r': {
+          mainnet_onion_seeds = optarg;
+          break;
+        }
+
+        case 'y': {
+          testnet_onion_seeds = optarg;
           break;
         }
 
@@ -578,6 +594,26 @@ int main(int argc, char **argv) {
           seeds = testnet_seeds_default;
           printf("Using default testnet seeds.\n");
       }
+
+      // Parse testnet onion seeds
+      if (opts.testnet_onion_seeds) {
+          string onionStr(opts.testnet_onion_seeds);
+          size_t pos = 0;
+          int onionCount = 0;
+          while ((pos = onionStr.find(',')) != string::npos) {
+              string onion = onionStr.substr(0, pos);
+              if (!onion.empty()) {
+                  db.Add(CService(onion, GetDefaultPort()), true);
+                  onionCount++;
+              }
+              onionStr.erase(0, pos + 1);
+          }
+          if (!onionStr.empty()) {
+              db.Add(CService(onionStr, GetDefaultPort()), true);
+              onionCount++;
+          }
+          printf("Added %d testnet onion seed node(s)\n", onionCount);
+      }
   } else {
       // Parse mainnet seeds
       if (opts.mainnet_seeds) {
@@ -593,6 +629,26 @@ int main(int argc, char **argv) {
       } else {
           seeds = mainnet_seeds_default;
           printf("Using default mainnet seeds.\n");
+      }
+
+      // Parse mainnet onion seeds
+      if (opts.mainnet_onion_seeds) {
+          string onionStr(opts.mainnet_onion_seeds);
+          size_t pos = 0;
+          int onionCount = 0;
+          while ((pos = onionStr.find(',')) != string::npos) {
+              string onion = onionStr.substr(0, pos);
+              if (!onion.empty()) {
+                  db.Add(CService(onion, GetDefaultPort()), true);
+                  onionCount++;
+              }
+              onionStr.erase(0, pos + 1);
+          }
+          if (!onionStr.empty()) {
+              db.Add(CService(onionStr, GetDefaultPort()), true);
+              onionCount++;
+          }
+          printf("Added %d mainnet onion seed node(s)\n", onionCount);
       }
   }
   if (!opts.ns) {
