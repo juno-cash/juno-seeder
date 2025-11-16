@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Tor SOCKS proxy service
+  tor:
+    image: peterdavehello/tor-socks-proxy:latest
+    container_name: tor-proxy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9050:9050"  # SOCKS5 proxy (only expose on localhost)
+    networks:
+      - seeder-net
+
+  # DNS Seeder with Tor support
+  dnsseed:
+    build: .
+    container_name: juno-seeder
+    restart: unless-stopped
+    ports:
+      - "53:53/udp"  # DNS port
+    environment:
+      - SEED_HOSTNAME=dnsseed.example.com
+      - NODE_HOSTNAME=vps.example.com
+      - EMAIL=admin.example.com
+      - THREADS=96
+      - ADDRESS=0.0.0.0
+      - PORT=53
+      - NETWORK=mainnet  # or "testnet"
+      - TOR_PROXY=tor:9050  # Enable Tor proxy support
+    depends_on:
+      - tor
+    networks:
+      - seeder-net
+    volumes:
+      - ./data:/home/dnsseed  # Persist database
+
+networks:
+  seeder-net:
+    driver: bridge
