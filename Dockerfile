@@ -1,22 +1,37 @@
-FROM debian:12 AS builder
-COPY . /srv/
-RUN apt update 
-RUN apt -y install build-essential libboost-all-dev libssl-dev 
-WORKDIR /srv
-RUN make
+FROM debian:trixie
 
-FROM debian:12
-RUN apt update && \
-    apt install -y libssl3 --no-install-recommends && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN mkdir -p /usr/local/bin /data
-COPY --from=builder /srv/dnsseed /usr/local/bin/dnsseed
-COPY entrypoint.sh /
-WORKDIR /data
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Set the entrypoint to your script
-ENTRYPOINT ["/entrypoint.sh"]
+RUN apt update && apt install -y \
+    build-essential \
+    g++ \
+    make \
+    pkg-config \
+    libssl-dev \
+    libevent-dev \
+    libboost-all-dev \
+    libc6-dev \
+    git \
+    ca-certificates && \
+    apt clean
 
-# Default CMD if no arguments are provided (this can be overwritten at runtime)
+WORKDIR /src
+
+# Copy your source code into the container
+COPY . .
+
+# Build it
+RUN make clean || true && make
+
+# Install the binary
+RUN install -m 755 dnsseed /usr/local/bin/dnsseed
+
+# Make entrypoint executable
+RUN chmod +x /src/entrypoint.sh
+
+# Set entrypoint
+ENTRYPOINT ["/src/entrypoint.sh"]
+
+# Default command (runs dnsseed via entrypoint)
 CMD ["/usr/local/bin/dnsseed"]

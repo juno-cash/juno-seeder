@@ -47,6 +47,9 @@ services:
     container_name: juno-seeder-mainnet
     restart: unless-stopped
     # No port mapping needed - Unbound forwards to this container via Docker network
+    networks:
+      seeder-net:
+        ipv4_address: 172.20.0.4
     environment:
       # Required settings
       - SEED_HOSTNAME=dnsseed.junomoneta.io
@@ -81,8 +84,6 @@ services:
 
     depends_on:
       - tor
-    networks:
-      - seeder-net
     volumes:
       - ./data-mainnet:/data  # Persist database (separate from testnet)
 
@@ -92,6 +93,9 @@ services:
     container_name: juno-seeder-testnet
     restart: unless-stopped
     # No port mapping needed - Unbound forwards to this container via Docker network
+    networks:
+      seeder-net:
+        ipv4_address: 172.20.0.3
     environment:
       # Required settings
       - SEED_HOSTNAME=dnsseed.testnet.junomoneta.io
@@ -120,11 +124,12 @@ services:
 
     depends_on:
       - tor
-    networks:
-      - seeder-net
     volumes:
       - ./data-testnet:/data  # Persist database (separate from mainnet)
 
 networks:
   seeder-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
