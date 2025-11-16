@@ -222,6 +222,7 @@ protected:
   void Skipped_(const CService &ip);       // mark an IP as skipped (must have been returned by Get_)
   int Lookup_(const CService &ip);         // look up id of an IP
   void GetIPs_(std::set<CNetAddr>& ips, uint64_t requestedFlags, int max, const bool *nets); // get a random set of IPs (shared lock only)
+  void GetTorList_(std::vector<std::string>& torAddrs, uint64_t requestedFlags, int max); // get a random set of Tor addresses (shared lock only)
 
 public:
   std::map<CService, time_t> banned; // nodes that are banned, with their unban time (a)
@@ -357,5 +358,9 @@ public:
   void GetIPs(std::set<CNetAddr>& ips, uint64_t requestedFlags, int max, const bool *nets) {
     SHARED_CRITICAL_BLOCK(cs)
       GetIPs_(ips, requestedFlags, max, nets);
+  }
+  void GetTorList(std::vector<std::string>& torAddrs, uint64_t requestedFlags, int max) {
+    SHARED_CRITICAL_BLOCK(cs)
+      GetTorList_(torAddrs, requestedFlags, max);
   }
 };

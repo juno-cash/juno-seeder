@@ -213,6 +213,7 @@ extern "C" void* ThreadCrawler(void* data) {
 }
 
 extern "C" int GetIPList(void *thread, char *requestedHostname, addr_t *addr, int max, int ipv4, int ipv6);
+extern "C" int GetTorList(void *thread, char *requestedHostname, char **txt, int max);
 
 class CDnsThread {
 public:
@@ -224,9 +225,17 @@ public:
       FlagSpecificData() : nIPv4(0), nIPv6(0), cacheTime(0), cacheHits(0) {}
   };
 
+  struct TorCacheData {
+      std::vector<std::string> cache;
+      time_t cacheTime;
+      unsigned int cacheHits;
+      TorCacheData() : cacheTime(0), cacheHits(0) {}
+  };
+
   dns_opt_t dns_opt; // must be first
   const int id;
   std::map<uint64_t, FlagSpecificData> perflag;
+  std::map<uint64_t, TorCacheData> torCache;
   std::atomic<uint64_t> dbQueries;
   std::set<uint64_t> filterWhitelist;
 
@@ -269,6 +278,20 @@ public:
     }
   }
 
+  void cacheTorHit(uint64_t requestedFlags, bool force = false) {
+    time_t now = time(NULL);
+    TorCacheData& thistor = torCache[requestedFlags];
+    thistor.cacheHits++;
+    if (force || thistor.cacheHits * 400 > (thistor.cache.size()*thistor.cache.size()) || (thistor.cacheHits*thistor.cacheHits * 20 > thistor.cache.size() && (now - thistor.cacheTime > 5))) {
+      std::vector<std::string> torAddrs;
+      db.GetTorList(torAddrs, requestedFlags, 1000);
+      dbQueries++;
+      thistor.cache = torAddrs;
+      thistor.cacheHits = 0;
+      thistor.cacheTime = now;
+    }
+  }
+
   CDnsThread(CDnsSeedOpts* opts, int idIn) : id(idIn) {
     dns_opt.host = opts->host;
     dns_opt.ns = opts->ns;
@@ -276,11 +299,13 @@ public:
     dns_opt.datattl = 3600;
     dns_opt.nsttl = 40000;
     dns_opt.cb = GetIPList;
+    dns_opt.txt_cb = GetTorList;
     dns_opt.addr = opts->ip_addr;
     dns_opt.port = opts->nPort;
     dns_opt.nRequests = 0;
     dbQueries = 0;
     perflag.clear();
+    torCache.clear();
     filterWhitelist = opts->filter_whitelist;
   }
 
@@ -328,6 +353,43 @@ extern "C" int GetIPList(void *data, char *requestedHostname, addr_t* addr, int 
     thisflag.cache[i] = addr[i];
     i++;
   }
+  return max;
+}
+
+extern "C" int GetTorList(void *data, char *requestedHostname, char **txt, int max) {
+  CDnsThread *thread = (CDnsThread*)data;
+
+  uint64_t requestedFlags = 0;
+  int hostlen = strlen(requestedHostname);
+  if (hostlen > 1 && requestedHostname[0] == 'x' && requestedHostname[1] != '0') {
+    char *pEnd;
+    uint64_t flags = (uint64_t)strtoull(requestedHostname+1, &pEnd, 16);
+    if (*pEnd == '.' && pEnd <= requestedHostname+17 && std::find(thread->filterWhitelist.begin(), thread->filterWhitelist.end(), flags) != thread->filterWhitelist.end())
+      requestedFlags = flags;
+    else
+      return 0;
+  }
+  else if (strcasecmp(requestedHostname, thread->dns_opt.host))
+    return 0;
+
+  thread->cacheTorHit(requestedFlags);
+  auto& thistor = thread->torCache[requestedFlags];
+  unsigned int size = thistor.cache.size();
+
+  if (max > size)
+    max = size;
+
+  // Swap first, then get c_str() to avoid dangling pointers
+  for (int i = 0; i < max; i++) {
+    int j = i + (rand() % (size - i));
+    std::swap(thistor.cache[i], thistor.cache[j]);
+  }
+
+  // Now safely get the c_str() pointers after all swaps are done
+  for (int i = 0; i < max; i++) {
+    txt[i] = (char*)thistor.cache[i].c_str();
+  }
+
   return max;
 }
 
@@ -423,9 +485,11 @@ static const string testnet_seeds[] = {"dnsseed.testnet.junomoneta.io", ""};
 static const string *seeds = mainnet_seeds;
 
 extern "C" void* ThreadSeeder(void*) {
-  //if (!fTestNet){
-  //  db.Add(CService("kjy2eqzk4zwi5zd3.onion", 8333), true);
-  //}
+  // Add seed onion addresses here if available
+  // Example for mainnet (update with actual Moneta onion addresses):
+  // if (!fTestNet){
+  //   db.Add(CService("example.onion", 8234), true);
+  // }
   do {
     for (int i=0; seeds[i] != ""; i++) {
       vector<CNetAddr> ips;

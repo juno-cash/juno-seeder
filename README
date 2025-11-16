@@ -13,6 +13,8 @@ Features:
   1 day and 1 week, to base decisions on.
 * very low memory (a few tens of megabytes) and cpu requirements.
 * crawlers run in parallel (by default 24 threads simultaneously).
+* supports crawling Tor onion addresses via SOCKS5 proxy.
+* exposes Tor onion addresses via DNS TXT records.
 
 REQUIREMENTS
 ------------
@@ -37,6 +39,61 @@ On the system vps.example.com, you can now run dnsseed:
 
 If you want the DNS server to report SOA records, please provide an
 e-mail address (with the @ part replaced by .) using -m.
+
+TOR SUPPORT
+-----------
+
+The seeder supports crawling and serving Tor onion addresses. To enable this:
+
+1. Run a Tor daemon on your system (typically listening on 127.0.0.1:9050)
+
+2. Start the seeder with the -o flag to specify the Tor proxy:
+
+   ./dnsseed -h dnsseed.example.com -n vps.example.com -o 127.0.0.1:9050
+
+3. The seeder will:
+   - Crawl .onion addresses discovered via peer exchange
+   - Test connectivity to onion nodes through the Tor proxy
+   - Apply the same quality metrics as clearnet nodes
+
+4. Clients can query onion addresses via DNS TXT records:
+
+   $ dig -t TXT dnsseed.example.com
+
+   ;; ANSWER SECTION
+   dnsseed.example.com. 3600 IN TXT "onion=abc123...xyz.onion:8234"
+   dnsseed.example.com. 3600 IN TXT "onion=def456...uvw.onion:8234"
+
+TXT records contain onion addresses in the format: onion=<address>:<port>
+
+Note: You can add seed onion addresses manually in main.cpp (ThreadSeeder function)
+to bootstrap the onion node discovery process.
+
+DOCKER WITH TOR SUPPORT
+------------------------
+
+The easiest way to run the seeder with Tor support is using docker-compose:
+
+   docker-compose up -d
+
+This will start both a Tor SOCKS proxy and the seeder with Tor enabled.
+
+Configuration via environment variables in docker-compose.yml:
+   - SEED_HOSTNAME: Your DNS seed hostname (e.g., dnsseed.example.com)
+   - NODE_HOSTNAME: Your server hostname (e.g., vps.example.com)
+   - EMAIL: Contact email (use dots instead of @)
+   - TOR_PROXY: Tor SOCKS5 proxy address (default: tor:9050)
+   - NETWORK: "mainnet" or "testnet"
+
+Manual Docker setup options:
+
+Option 1: Install Tor in the same container (modify Dockerfile):
+   RUN apt install -y tor libssl3 --no-install-recommends
+   Set TOR_PROXY=127.0.0.1:9050
+
+Option 2: Use a separate Tor container:
+   docker run -d --name tor-proxy peterdavehello/tor-socks-proxy
+   docker run --link tor-proxy:tor -e TOR_PROXY=tor:9050 ...
 
 COMPILING
 ---------

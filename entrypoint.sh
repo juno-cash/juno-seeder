@@ -9,11 +9,17 @@ export THREADS=${THREADS}
 export ADDRESS=${ADDRESS:-"0.0.0.0"}
 export PORT=${PORT:-"53"}
 export NETWORK=${NETWORK:-"mainnet"}  # Default to "mainnet" unless otherwise set
+export TOR_PROXY=${TOR_PROXY}  # Optional Tor SOCKS5 proxy (e.g., "127.0.0.1:9050" or "tor:9050")
 
 # Extra arguments for testnet
 extra_args=""
 if [[ "$NETWORK" == "testnet" ]]; then
   export extra_args="--testnet"
+fi
+
+# Add Tor proxy argument if set
+if [[ -n "$TOR_PROXY" ]]; then
+  export extra_args="$extra_args -o $TOR_PROXY"
 fi
 
 # If the first argument starts with a hyphen (-), consider it an argument for the dnsseed binary

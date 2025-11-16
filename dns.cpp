@@ -44,6 +44,7 @@ typedef enum {
   TYPE_CNAME = 5,
   TYPE_SOA = 6,
   TYPE_MX = 15,
+  TYPE_TXT = 16,
   TYPE_AAAA = 28,
   TYPE_SRV = 33,
   QTYPE_ANY = 255
@@ -188,6 +189,30 @@ int static write_record_aaaa(unsigned char** outpos, const unsigned char *outend
     // rdata
     for (int i=0; i<16; i++)
       *((*outpos)++) = ip->data.v6[i];
+    return 0;
+  }
+  *outpos = oldpos;
+  return error;
+}
+
+int static write_record_txt(unsigned char** outpos, const unsigned char *outend, const char *name, int offset, dns_class cls, int ttl, const char *txt) {
+  unsigned char *oldpos = *outpos;
+  int ret = write_record(outpos, outend, name, offset, TYPE_TXT, cls, ttl);
+  if (ret) return ret;
+  int error = 0;
+  int txtlen = strlen(txt);
+  if (txtlen > 255) txtlen = 255; // TXT strings are limited to 255 characters
+  if (outend - *outpos < 3 + txtlen) {
+    error = -5;
+  } else {
+    // rdlength (2 bytes)
+    int rdlength = txtlen + 1; // +1 for the length byte
+    *((*outpos)++) = (rdlength >> 8) & 0xFF;
+    *((*outpos)++) = rdlength & 0xFF;
+    // TXT-DATA (length byte followed by character-string)
+    *((*outpos)++) = txtlen;
+    memcpy(*outpos, txt, txtlen);
+    *outpos += txtlen;
     return 0;
   }
   *outpos = oldpos;
@@ -373,7 +398,23 @@ ssize_t static dnshandle(dns_opt_t *opt, const unsigned char *inbuf, size_t insi
         break;
     }
   }
-  
+
+  // TXT records
+  if ((typ == TYPE_TXT || typ == QTYPE_ANY) && (cls == CLASS_IN || cls == QCLASS_ANY) && opt->txt_cb) {
+    char *txt[32];
+    int ntxt = opt->txt_cb((void*)opt, name, txt, 32);
+    int n = 0;
+    while (n < ntxt) {
+      int ret = write_record_txt(&outpos, outend - max_auth_size, "", offset, CLASS_IN, opt->datattl, txt[n]);
+//      printf("wrote TXT record: %i\n", ret);
+      if (!ret) {
+        n++;
+        outbuf[7]++;
+      } else
+        break;
+    }
+  }
+
   // Authority section
   if (!have_ns && outbuf[7]) {
     int ret2 = write_record_ns(&outpos, outend, "", offset, CLASS_IN, opt->nsttl, opt->ns);

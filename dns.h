@@ -20,6 +20,7 @@ struct dns_opt_t {
   const char *ns;
   const char *mbox;
   int (*cb)(void *opt, char *requested_hostname, addr_t *addr, int max, int ipv4, int ipv6);
+  int (*txt_cb)(void *opt, char *requested_hostname, char **txt, int max);
   // stats
   uint64_t nRequests;
 };

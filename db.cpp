@@ -201,3 +201,37 @@ void CAddrDb::GetIPs_(set<CNetAddr>& ips, uint64_t requestedFlags, int max, cons
       ips.insert(ip);
   }
 }
+
+void CAddrDb::GetTorList_(std::vector<std::string>& torAddrs, uint64_t requestedFlags, int max) {
+  if (goodId.size() == 0) {
+    return;
+  }
+
+  std::vector<int> goodTorFiltered;
+  for (std::set<int>::const_iterator it = goodId.begin(); it != goodId.end(); it++) {
+    const CAddrInfo& info = idToInfo[*it];
+    // Filter for Tor addresses and requested service flags
+    if (info.ip.IsTor() && (info.services & requestedFlags) == requestedFlags) {
+      goodTorFiltered.push_back(*it);
+    }
+  }
+
+  if (!goodTorFiltered.size())
+    return;
+
+  if (max > goodTorFiltered.size() / 2)
+    max = goodTorFiltered.size() / 2;
+  if (max < 1)
+    max = 1;
+
+  set<int> ids;
+  while (ids.size() < (unsigned int)max) {
+    ids.insert(goodTorFiltered[rand() % goodTorFiltered.size()]);
+  }
+
+  for (set<int>::const_iterator it = ids.begin(); it != ids.end(); it++) {
+    const CService &service = idToInfo[*it].ip;
+    std::string onionAddr = "onion=" + service.ToStringIPPort();
+    torAddrs.push_back(onionAddr);
+  }
+}
