@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Tor SOCKS proxy service
+  # Tor SOCKS proxy service (shared by both seeders)
   tor:
     image: peterdavehello/tor-socks-proxy:latest
     container_name: tor-proxy
@@ -11,30 +11,82 @@ services:
     networks:
       - seeder-net
 
-  # DNS Seeder with Tor support
-  dnsseed:
+  # Mainnet DNS Seeder with Tor support
+  mainnet-seeder:
     build: .
-    container_name: juno-seeder
+    container_name: juno-seeder-mainnet
     restart: unless-stopped
     ports:
-      - "53:53/udp"  # DNS port
+      - "53:53/udp"  # DNS port for mainnet
     environment:
-      - SEED_HOSTNAME=dnsseed.example.com
-      - NODE_HOSTNAME=vps.example.com
-      - EMAIL=admin.example.com
-      - THREADS=96
-      - ADDRESS=0.0.0.0
-      - PORT=53
-      - NETWORK=mainnet  # or "testnet"
-      - TOR_PROXY=tor:9050  # Enable Tor proxy support
-      - MAINNET_SEEDS=dnsseed.junomoneta.io  # Comma-separated list of mainnet seed hostnames
-      - TESTNET_SEEDS=dnsseed.testnet.junomoneta.io  # Comma-separated list of testnet seed hostnames
+      # Required settings
+      - SEED_HOSTNAME=dnsseed.junomoneta.io
+      - NODE_HOSTNAME=mainnet.junomoneta.io
+      - EMAIL=admin.junomoneta.io
+
+      # Performance tuning
+      - THREADS=96                    # Number of crawler threads (default: 96)
+      - ADDRESS=0.0.0.0               # Listen address (default: 0.0.0.0)
+      - PORT=53                       # DNS port (default: 53)
+
+      # Network selection
+      - NETWORK=mainnet               # "mainnet" or "testnet"
+
+      # Tor support (optional)
+      - TOR_PROXY=tor:9050            # Enable Tor proxy for onion nodes
+
+      # Seed configuration (optional - uses defaults if not specified)
+      # DNS seed hostnames - resolved to get initial peer IPs
+      - MAINNET_SEEDS=seeds.junomoneta.io,backup-seeds.junomoneta.io
+
+      # Direct onion addresses - add known .onion nodes for bootstrapping
+      # Format: addr.onion:port (use port 8234 for mainnet, 18234 for testnet)
+      # Example: - MAINNET_ONION_SEEDS=abc123def456.onion:8234,xyz789uvw012.onion:8234
+      # - MAINNET_ONION_SEEDS=
+
     depends_on:
       - tor
     networks:
       - seeder-net
     volumes:
-      - ./data:/home/dnsseed  # Persist database
+      - ./data-mainnet:/home/dnsseed  # Persist database (separate from testnet)
+
+  # Testnet DNS Seeder with Tor support
+  testnet-seeder:
+    build: .
+    container_name: juno-seeder-testnet
+    restart: unless-stopped
+    ports:
+      - "5353:53/udp"  # DNS port for testnet (different host port)
+    environment:
+      # Required settings
+      - SEED_HOSTNAME=dnsseed.testnet.junomoneta.io
+      - NODE_HOSTNAME=testnet.junomoneta.io
+      - EMAIL=admin.junomoneta.io
+
+      # Performance tuning
+      - THREADS=50                    # Fewer threads for testnet
+      - ADDRESS=0.0.0.0
+      - PORT=53                       # Container internal port (mapped to 5353 on host)
+
+      # Network selection
+      - NETWORK=testnet               # "mainnet" or "testnet"
+
+      # Tor support (optional)
+      - TOR_PROXY=tor:9050
+
+      # Seed configuration (optional - uses defaults if not specified)
+      - TESTNET_SEEDS=seeds.testnet.junomoneta.io
+
+      # Direct testnet onion addresses
+      # - TESTNET_ONION_SEEDS=test123abc456.onion:18234
+
+    depends_on:
+      - tor
+    networks:
+      - seeder-net
+    volumes:
+      - ./data-testnet:/home/dnsseed  # Persist database (separate from mainnet)
 
 networks:
   seeder-net:
