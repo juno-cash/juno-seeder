@@ -31,9 +31,11 @@ public:
   const char *ip_addr;
   const char *ipv4_proxy;
   const char *ipv6_proxy;
+  const char *mainnet_seeds;
+  const char *testnet_seeds;
   std::set<uint64_t> filter_whitelist;
 
-  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL) {}
+  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL), mainnet_seeds(NULL), testnet_seeds(NULL) {}
 
   void ParseCommandLine(int argc, char **argv) {
     static const char *help = "Bitcoin-seeder\n"
@@ -51,6 +53,8 @@ public:
                               "-i <ip:port>    IPV4 SOCKS5 proxy IP/Port\n"
                               "-k <ip:port>    IPV6 SOCKS5 proxy IP/Port\n"
                               "-w f1,f2,...    Allow these flag combinations as filters\n"
+                              "-s <seeds>      Comma-separated list of mainnet seed hostnames\n"
+                              "-u <seeds>      Comma-separated list of testnet seed hostnames\n"
                               "--testnet       Use testnet\n"
                               "--wipeban       Wipe list of banned nodes\n"
                               "--wipeignore    Wipe list of ignored nodes\n"
@@ -71,6 +75,8 @@ public:
         {"proxyipv4", required_argument, 0, 'i'},
         {"proxyipv6", required_argument, 0, 'k'},
         {"filter", required_argument, 0, 'w'},
+        {"mainnet-seeds", required_argument, 0, 's'},
+        {"testnet-seeds", required_argument, 0, 'u'},
         {"testnet", no_argument, &fUseTestNet, 1},
         {"wipeban", no_argument, &fWipeBan, 1},
         {"wipeignore", no_argument, &fWipeBan, 1},
@@ -78,7 +84,7 @@ public:
         {0, 0, 0, 0}
       };
       int option_index = 0;
-      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:", long_options, &option_index);
+      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:s:u:", long_options, &option_index);
       if (c == -1) break;
       switch (c) {
         case 'h': {
@@ -152,6 +158,16 @@ public:
             }
             filter_whitelist.insert(l);
           }
+          break;
+        }
+
+        case 's': {
+          mainnet_seeds = optarg;
+          break;
+        }
+
+        case 'u': {
+          testnet_seeds = optarg;
           break;
         }
 
@@ -480,9 +496,9 @@ extern "C" void* ThreadStats(void*) {
   return nullptr;
 }
 
-static const string mainnet_seeds[] = {"dnsseed.junomoneta.io", ""};
-static const string testnet_seeds[] = {"dnsseed.testnet.junomoneta.io", ""};
-static const string *seeds = mainnet_seeds;
+static vector<string> mainnet_seeds_default = {"dnsseed.junomoneta.io"};
+static vector<string> testnet_seeds_default = {"dnsseed.testnet.junomoneta.io"};
+static vector<string> seeds;
 
 extern "C" void* ThreadSeeder(void*) {
   // Add seed onion addresses here if available
@@ -491,7 +507,8 @@ extern "C" void* ThreadSeeder(void*) {
   //   db.Add(CService("example.onion", 8234), true);
   // }
   do {
-    for (int i=0; seeds[i] != ""; i++) {
+    for (size_t i = 0; i < seeds.size(); i++) {
+      if (seeds[i].empty()) continue;
       vector<CNetAddr> ips;
       LookupHost(seeds[i].c_str(), ips);
       for (vector<CNetAddr>::iterator it = ips.begin(); it != ips.end(); it++) {
@@ -544,8 +561,39 @@ int main(int argc, char **argv) {
       pchMessageStart[1] = 0x23;
       pchMessageStart[2] = 0xe1;
       pchMessageStart[3] = 0x6c;
-      seeds = testnet_seeds;
       fTestNet = true;
+
+      // Parse testnet seeds
+      if (opts.testnet_seeds) {
+          string seedStr(opts.testnet_seeds);
+          size_t pos = 0;
+          while ((pos = seedStr.find(',')) != string::npos) {
+              string seed = seedStr.substr(0, pos);
+              if (!seed.empty()) seeds.push_back(seed);
+              seedStr.erase(0, pos + 1);
+          }
+          if (!seedStr.empty()) seeds.push_back(seedStr);
+          printf("Using custom testnet seeds: %s\n", opts.testnet_seeds);
+      } else {
+          seeds = testnet_seeds_default;
+          printf("Using default testnet seeds.\n");
+      }
+  } else {
+      // Parse mainnet seeds
+      if (opts.mainnet_seeds) {
+          string seedStr(opts.mainnet_seeds);
+          size_t pos = 0;
+          while ((pos = seedStr.find(',')) != string::npos) {
+              string seed = seedStr.substr(0, pos);
+              if (!seed.empty()) seeds.push_back(seed);
+              seedStr.erase(0, pos + 1);
+          }
+          if (!seedStr.empty()) seeds.push_back(seedStr);
+          printf("Using custom mainnet seeds: %s\n", opts.mainnet_seeds);
+      } else {
+          seeds = mainnet_seeds_default;
+          printf("Using default mainnet seeds.\n");
+      }
   }
   if (!opts.ns) {
     printf("No nameserver set. Not starting DNS server.\n");

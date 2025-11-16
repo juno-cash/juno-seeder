@@ -27,11 +27,12 @@ This seeder has been customized for the Juno network with the following network 
 2. **protocol.h** (line 21)
    - Updated port configuration: mainnet=8234, testnet=18234
 
-3. **main.cpp** (lines 479-483)
+3. **main.cpp** (lines 558-597)
    - Updated testnet magic bytes to `0xa7, 0x23, 0xe1, 0x6c`
 
-4. **main.cpp** (lines 421-422)
-   - Updated seed domains to `dnsseed.junomoneta.io` and `dnsseed.testnet.junomoneta.io`
+4. **main.cpp** (lines 499-500)
+   - Updated default seed domains to `dnsseed.junomoneta.io` and `dnsseed.testnet.junomoneta.io`
+   - Made seed domains configurable via command-line arguments (-s for mainnet, -u for testnet)
 
 5. **serialize.h** (line 63)
    - Updated protocol version from `170100` to `170140`
@@ -55,6 +56,8 @@ This seeder has been customized for the Juno network with the following network 
 - `-t <threads>`: Number of crawlers to run in parallel (default 96)
 - `-d <threads>`: Number of DNS server threads (default 4)
 - `-p <port>`: UDP port to listen on (default 53)
+- `-s <seeds>`: Comma-separated list of mainnet seed hostnames to bootstrap from
+- `-u <seeds>`: Comma-separated list of testnet seed hostnames to bootstrap from
 - `--testnet`: Use testnet parameters
 
 ## Network Isolation
@@ -73,11 +76,15 @@ These parameters ensure complete isolation from the Zcash network:
 
 ## Seed Nodes
 
-The seeder is configured to bootstrap from these seed nodes (defined in main.cpp:421-422):
+The seeder is configured to bootstrap from these default seed nodes (defined in main.cpp:499-500):
 - Mainnet: `dnsseed.junomoneta.io`
 - Testnet: `dnsseed.testnet.junomoneta.io`
 
-These domains should point to your DNS seed servers that will provide IP addresses of active nodes on the Juno network.
+These can be overridden using:
+- Command-line: `-s seed1.example.com,seed2.example.com` (mainnet) or `-u` (testnet)
+- Docker: `MAINNET_SEEDS` or `TESTNET_SEEDS` environment variables
+
+The seed domains should point to your DNS seed servers that will provide IP addresses of active nodes on the Juno network.
 
 ## Testing
 

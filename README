@@ -40,6 +40,32 @@ On the system vps.example.com, you can now run dnsseed:
 If you want the DNS server to report SOA records, please provide an
 e-mail address (with the @ part replaced by .) using -m.
 
+SEED CONFIGURATION
+------------------
+
+The seeder needs initial "seed" nodes to bootstrap the crawling process. These can be
+configured via command-line arguments or Docker environment variables.
+
+Command-line usage:
+
+   ./dnsseed -h dnsseed.example.com -n vps.example.com -s seed1.example.com,seed2.example.com
+
+   -s <seeds>    Comma-separated list of mainnet seed hostnames
+   -u <seeds>    Comma-separated list of testnet seed hostnames
+
+Docker environment variables:
+
+   - MAINNET_SEEDS: Comma-separated list of mainnet seed hostnames (e.g., "seed1.com,seed2.com")
+   - TESTNET_SEEDS: Comma-separated list of testnet seed hostnames
+
+The seeder will:
+1. Perform DNS lookups on the seed hostnames every 30 minutes
+2. Connect to the resolved IP addresses on the default port
+3. Request peer lists from those nodes to discover more peers
+4. Build a database of active, healthy nodes
+
+If no seeds are specified, the seeder uses default seeds hardcoded in main.cpp.
+
 TOR SUPPORT
 -----------
 
@@ -84,6 +110,8 @@ Configuration via environment variables in docker-compose.yml:
    - EMAIL: Contact email (use dots instead of @)
    - TOR_PROXY: Tor SOCKS5 proxy address (default: tor:9050)
    - NETWORK: "mainnet" or "testnet"
+   - MAINNET_SEEDS: Comma-separated list of mainnet seed hostnames to bootstrap from
+   - TESTNET_SEEDS: Comma-separated list of testnet seed hostnames to bootstrap from
 
 Manual Docker setup options:
 

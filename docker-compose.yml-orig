@@ -27,6 +27,8 @@ services:
       - PORT=53
       - NETWORK=mainnet  # or "testnet"
       - TOR_PROXY=tor:9050  # Enable Tor proxy support
+      - MAINNET_SEEDS=dnsseed.junomoneta.io  # Comma-separated list of mainnet seed hostnames
+      - TESTNET_SEEDS=dnsseed.testnet.junomoneta.io  # Comma-separated list of testnet seed hostnames
     depends_on:
       - tor
     networks:

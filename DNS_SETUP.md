@@ -6,15 +6,36 @@ The DNS seeder has been configured to use the Juno domains for network bootstrap
 
 ## Seed Domains
 
-### Mainnet
+The seeder uses seed domains to bootstrap the crawling process by finding initial peers.
+
+### Default Seeds
+
+#### Mainnet
 - **Domain**: `dnsseed.junomoneta.io`
 - **Purpose**: Bootstrap mainnet nodes
 - **Network**: Mainnet (magic: `0xb50c0702`, port: `8234`)
 
-### Testnet
+#### Testnet
 - **Domain**: `dnsseed.testnet.junomoneta.io`
 - **Purpose**: Bootstrap testnet nodes
 - **Network**: Testnet (magic: `0xa723e16c`, port: `18234`)
+
+### Customizing Seed Domains
+
+You can override the default seed domains using:
+
+**Command-line:**
+```bash
+./dnsseed -h seed.example.com -n ns.example.com -s seed1.example.com,seed2.example.com
+./dnsseed -h seed.example.com -n ns.example.com -u testseed1.example.com --testnet
+```
+
+**Docker environment variables:**
+```yaml
+environment:
+  - MAINNET_SEEDS=seed1.example.com,seed2.example.com,seed3.example.com
+  - TESTNET_SEEDS=testseed1.example.com,testseed2.example.com
+```
 
 ## How It Works
 
@@ -102,11 +123,11 @@ If the seeder can't find initial nodes:
 
 ## Manual Node Addition
 
-If needed, you can manually add initial nodes by editing the code in `main.cpp` around line 426:
+If needed, you can manually add initial nodes by editing the code in `main.cpp` around line 503:
 
 ```cpp
 extern "C" void* ThreadSeeder(void*) {
-  // Add manual nodes here
+  // Add manual nodes here (before the loop)
   db.Add(CService("1.2.3.4", 8234), true);  // Mainnet node
 
   do {
@@ -114,3 +135,6 @@ extern "C" void* ThreadSeeder(void*) {
 ```
 
 Then rebuild: `make`
+
+Note: Using the `-s` or `-u` command-line options (or Docker environment variables) is
+preferred over hardcoding IPs, as it provides more flexibility without requiring rebuilds.
