@@ -35,9 +35,11 @@ public:
   const char *testnet_seeds;
   const char *mainnet_onion_seeds;
   const char *testnet_onion_seeds;
+  const char *mainnet_txt_seeds;
+  const char *testnet_txt_seeds;
   std::set<uint64_t> filter_whitelist;
 
-  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL), mainnet_seeds(NULL), testnet_seeds(NULL), mainnet_onion_seeds(NULL), testnet_onion_seeds(NULL) {}
+  CDnsSeedOpts() : nThreads(96), nDnsThreads(4), ip_addr("::"), nPort(53), mbox(NULL), ns(NULL), host(NULL), tor(NULL), fUseTestNet(false), fWipeBan(false), fWipeIgnore(false), ipv4_proxy(NULL), ipv6_proxy(NULL), mainnet_seeds(NULL), testnet_seeds(NULL), mainnet_onion_seeds(NULL), testnet_onion_seeds(NULL), mainnet_txt_seeds(NULL), testnet_txt_seeds(NULL) {}
 
   void ParseCommandLine(int argc, char **argv) {
     static const char *help = "Bitcoin-seeder\n"
@@ -59,6 +61,8 @@ public:
                               "-u <seeds>      Comma-separated list of testnet seed hostnames\n"
                               "-r <onions>     Comma-separated list of mainnet onion addresses (addr.onion:port)\n"
                               "-y <onions>     Comma-separated list of testnet onion addresses (addr.onion:port)\n"
+                              "-x <domains>    Comma-separated list of mainnet domains to query for TXT records\n"
+                              "-z <domains>    Comma-separated list of testnet domains to query for TXT records\n"
                               "--testnet       Use testnet\n"
                               "--wipeban       Wipe list of banned nodes\n"
                               "--wipeignore    Wipe list of ignored nodes\n"
@@ -83,6 +87,8 @@ public:
         {"testnet-seeds", required_argument, 0, 'u'},
         {"mainnet-onion-seeds", required_argument, 0, 'r'},
         {"testnet-onion-seeds", required_argument, 0, 'y'},
+        {"mainnet-txt-seeds", required_argument, 0, 'x'},
+        {"testnet-txt-seeds", required_argument, 0, 'z'},
         {"testnet", no_argument, &fUseTestNet, 1},
         {"wipeban", no_argument, &fWipeBan, 1},
         {"wipeignore", no_argument, &fWipeBan, 1},
@@ -90,7 +96,7 @@ public:
         {0, 0, 0, 0}
       };
       int option_index = 0;
-      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:s:u:r:y:", long_options, &option_index);
+      int c = getopt_long(argc, argv, "h:n:m:t:a:p:d:o:i:k:w:s:u:r:y:x:z:", long_options, &option_index);
       if (c == -1) break;
       switch (c) {
         case 'h': {
@@ -184,6 +190,16 @@ public:
 
         case 'y': {
           testnet_onion_seeds = optarg;
+          break;
+        }
+
+        case 'x': {
+          mainnet_txt_seeds = optarg;
+          break;
+        }
+
+        case 'z': {
+          testnet_txt_seeds = optarg;
           break;
         }
 
@@ -515,6 +531,7 @@ extern "C" void* ThreadStats(void*) {
 static vector<string> mainnet_seeds_default = {"dnsseed.junomoneta.io"};
 static vector<string> testnet_seeds_default = {"dnsseed.testnet.junomoneta.io"};
 static vector<string> seeds;
+static vector<string> txt_seeds;  // Domains to query for TXT records
 
 extern "C" void* ThreadSeeder(void*) {
   // Add seed onion addresses here if available
@@ -523,6 +540,7 @@ extern "C" void* ThreadSeeder(void*) {
   //   db.Add(CService("example.onion", 8234), true);
   // }
   do {
+    // Query A records for clearnet seeds
     for (size_t i = 0; i < seeds.size(); i++) {
       if (seeds[i].empty()) continue;
       vector<CNetAddr> ips;
@@ -531,6 +549,25 @@ extern "C" void* ThreadSeeder(void*) {
         db.Add(CService(*it, GetDefaultPort()), true);
       }
     }
+
+    // Query TXT records for additional seeds (useful for onion addresses)
+    for (size_t i = 0; i < txt_seeds.size(); i++) {
+      if (txt_seeds[i].empty()) continue;
+      vector<string> txtRecords;
+      if (LookupTXT(txt_seeds[i].c_str(), txtRecords)) {
+        for (vector<string>::iterator it = txtRecords.begin(); it != txtRecords.end(); it++) {
+          // Parse TXT record - expect format like "192.0.2.1:8234" or "abc.onion:8234"
+          string record = *it;
+
+          // Try to parse as CService (handles both IP:port and onion:port)
+          CService service(record, GetDefaultPort());
+          if (service.IsValid()) {
+            db.Add(service, true);
+          }
+        }
+      }
+    }
+
     Sleep(1800000);
   } while(1);
   return nullptr;
@@ -614,6 +651,19 @@ int main(int argc, char **argv) {
           }
           printf("Added %d testnet onion seed node(s)\n", onionCount);
       }
+
+      // Parse testnet TXT seed domains
+      if (opts.testnet_txt_seeds) {
+          string txtStr(opts.testnet_txt_seeds);
+          size_t pos = 0;
+          while ((pos = txtStr.find(',')) != string::npos) {
+              string domain = txtStr.substr(0, pos);
+              if (!domain.empty()) txt_seeds.push_back(domain);
+              txtStr.erase(0, pos + 1);
+          }
+          if (!txtStr.empty()) txt_seeds.push_back(txtStr);
+          printf("Will query TXT records from: %s\n", opts.testnet_txt_seeds);
+      }
   } else {
       // Parse mainnet seeds
       if (opts.mainnet_seeds) {
@@ -649,6 +699,19 @@ int main(int argc, char **argv) {
               onionCount++;
           }
           printf("Added %d mainnet onion seed node(s)\n", onionCount);
+      }
+
+      // Parse mainnet TXT seed domains
+      if (opts.mainnet_txt_seeds) {
+          string txtStr(opts.mainnet_txt_seeds);
+          size_t pos = 0;
+          while ((pos = txtStr.find(',')) != string::npos) {
+              string domain = txtStr.substr(0, pos);
+              if (!domain.empty()) txt_seeds.push_back(domain);
+              txtStr.erase(0, pos + 1);
+          }
+          if (!txtStr.empty()) txt_seeds.push_back(txtStr);
+          printf("Will query TXT records from: %s\n", opts.mainnet_txt_seeds);
       }
   }
   if (!opts.ns) {

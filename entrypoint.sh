@@ -14,6 +14,8 @@ export MAINNET_SEEDS=${MAINNET_SEEDS}  # Comma-separated list of mainnet seed ho
 export TESTNET_SEEDS=${TESTNET_SEEDS}  # Comma-separated list of testnet seed hostnames
 export MAINNET_ONION_SEEDS=${MAINNET_ONION_SEEDS}  # Comma-separated list of mainnet onion addresses (addr.onion:port)
 export TESTNET_ONION_SEEDS=${TESTNET_ONION_SEEDS}  # Comma-separated list of testnet onion addresses (addr.onion:port)
+export MAINNET_TXT_SEEDS=${MAINNET_TXT_SEEDS}      # Comma-separated list of mainnet domains to query for TXT records
+export TESTNET_TXT_SEEDS=${TESTNET_TXT_SEEDS}      # Comma-separated list of testnet domains to query for TXT records
 
 # Extra arguments for testnet
 extra_args=""
@@ -44,6 +46,16 @@ fi
 # Add testnet onion seeds if set
 if [[ -n "$TESTNET_ONION_SEEDS" ]]; then
   export extra_args="$extra_args -y \"$TESTNET_ONION_SEEDS\""
+fi
+
+# Add mainnet TXT seed domains if set
+if [[ -n "$MAINNET_TXT_SEEDS" ]]; then
+  export extra_args="$extra_args -x \"$MAINNET_TXT_SEEDS\""
+fi
+
+# Add testnet TXT seed domains if set
+if [[ -n "$TESTNET_TXT_SEEDS" ]]; then
+  export extra_args="$extra_args -z \"$TESTNET_TXT_SEEDS\""
 fi
 
 # If the first argument starts with a hyphen (-), consider it an argument for the dnsseed binary

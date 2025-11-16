@@ -65,13 +65,19 @@ services:
       - TOR_PROXY=tor:9050            # Enable Tor proxy for onion nodes
 
       # Seed configuration (optional - uses defaults if not specified)
-      # DNS seed hostnames - resolved to get initial peer IPs
+      # DNS A record seed hostnames - resolved to get initial peer IPs
       - MAINNET_SEEDS=seeds.junomoneta.io,backup-seeds.junomoneta.io
 
       # Direct onion addresses - add known .onion nodes for bootstrapping
       # Format: addr.onion:port (use port 8234 for mainnet, 18234 for testnet)
       # Example: - MAINNET_ONION_SEEDS=abc123def456.onion:8234,xyz789uvw012.onion:8234
       # - MAINNET_ONION_SEEDS=
+
+      # DNS TXT record seed domains - query TXT records for seed addresses
+      # Useful for storing onion addresses or IP:port combinations in DNS
+      # TXT record format: "192.0.2.1:8234" or "abc123.onion:8234"
+      # Example: - MAINNET_TXT_SEEDS=_seeds.junomoneta.io
+      # - MAINNET_TXT_SEEDS=
 
     depends_on:
       - tor
@@ -108,6 +114,9 @@ services:
 
       # Direct testnet onion addresses
       # - TESTNET_ONION_SEEDS=test123abc456.onion:18234
+
+      # DNS TXT record seed domains for testnet
+      # - TESTNET_TXT_SEEDS=_seeds.testnet.junomoneta.io
 
     depends_on:
       - tor

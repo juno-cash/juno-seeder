@@ -8,6 +8,9 @@
 
 #ifndef WIN32
 #include <sys/fcntl.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
 #endif
 
 #include "strlcpy.h"
@@ -1137,4 +1140,50 @@ void CService::print() const
 void CService::SetPort(unsigned short portIn)
 {
     port = portIn;
+}
+
+// Query DNS TXT records and return results
+bool LookupTXT(const char *pszName, std::vector<std::string>& vTXT)
+{
+#ifndef WIN32
+    unsigned char response[NS_PACKETSZ];
+    int responseLen = res_query(pszName, ns_c_in, ns_t_txt, response, sizeof(response));
+
+    if (responseLen < 0) {
+        return false;
+    }
+
+    ns_msg handle;
+    if (ns_initparse(response, responseLen, &handle) < 0) {
+        return false;
+    }
+
+    int rrCount = ns_msg_count(handle, ns_s_an);
+    for (int i = 0; i < rrCount; i++) {
+        ns_rr rr;
+        if (ns_parserr(&handle, ns_s_an, i, &rr) < 0) {
+            continue;
+        }
+
+        if (ns_rr_type(rr) == ns_t_txt) {
+            const unsigned char *data = ns_rr_rdata(rr);
+            int len = ns_rr_rdlen(rr);
+
+            // TXT records are length-prefixed strings
+            int pos = 0;
+            while (pos < len) {
+                int txtLen = data[pos++];
+                if (pos + txtLen <= len) {
+                    std::string txt((const char*)&data[pos], txtLen);
+                    vTXT.push_back(txt);
+                    pos += txtLen;
+                }
+            }
+        }
+    }
+
+    return !vTXT.empty();
+#else
+    return false;  // Windows not supported for now
+#endif
 }

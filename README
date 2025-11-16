@@ -50,10 +50,12 @@ Command-line usage:
 
    ./dnsseed -h dnsseed.example.com -n vps.example.com -s seed1.example.com,seed2.example.com
 
-   -s <seeds>    Comma-separated list of mainnet seed hostnames
-   -u <seeds>    Comma-separated list of testnet seed hostnames
+   -s <seeds>    Comma-separated list of mainnet seed hostnames (DNS A records)
+   -u <seeds>    Comma-separated list of testnet seed hostnames (DNS A records)
    -r <onions>   Comma-separated list of mainnet onion addresses (addr.onion:port)
    -y <onions>   Comma-separated list of testnet onion addresses (addr.onion:port)
+   -x <domains>  Comma-separated list of mainnet domains to query for DNS TXT records
+   -z <domains>  Comma-separated list of testnet domains to query for DNS TXT records
 
 Docker environment variables:
 
@@ -61,12 +63,17 @@ Docker environment variables:
    - TESTNET_SEEDS: Comma-separated list of testnet seed hostnames
    - MAINNET_ONION_SEEDS: Comma-separated list of mainnet onion addresses (e.g., "abc.onion:8234")
    - TESTNET_ONION_SEEDS: Comma-separated list of testnet onion addresses (e.g., "xyz.onion:18234")
+   - MAINNET_TXT_SEEDS: Comma-separated list of domains to query for TXT records (e.g., "_seeds.example.com")
+   - TESTNET_TXT_SEEDS: Comma-separated list of testnet TXT seed domains
 
 The seeder will:
-1. Perform DNS lookups on the seed hostnames every 30 minutes
-2. Connect to the resolved IP addresses on the default port
-3. Request peer lists from those nodes to discover more peers
-4. Build a database of active, healthy nodes
+1. Perform DNS A record lookups on seed hostnames every 30 minutes
+2. Query DNS TXT records from TXT seed domains for additional addresses
+3. Connect to the resolved IP addresses on the default port
+4. Request peer lists from those nodes to discover more peers
+5. Build a database of active, healthy nodes
+
+TXT records should contain addresses in format: "192.0.2.1:8234" or "abc.onion:8234"
 
 If no seeds are specified, the seeder uses default seeds hardcoded in main.cpp.
 
